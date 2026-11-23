@@ -1,0 +1,1190 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="robots" content="noindex">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#211F20">
+<meta name="description" content="+Y Workshop Console Passport — warranty, build log and rewards for your hand-built handheld. Akihabara, Tokyo.">
+<title>Console Passport · +Y Workshop 秋葉原</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 8 8%27 shape-rendering=%27crispEdges%27%3E%3Crect width=%278%27 height=%278%27 fill=%27%23211F20%27/%3E%3Cpath d=%27M1 3h3v1H1zM2 2h1v3H2z%27 fill=%27%23C8346E%27/%3E%3Cpath d=%27M5 2h1v1H5zM7 2h-1v1h1zM5 3h2v1H5zM5.5 4h1v2h-1z%27 fill=%27%239bbc0f%27/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323&display=swap" rel="stylesheet">
+<!--
+  ============================================================================
+  +Y WORKSHOP — CONSOLE PASSPORT (prototype)
+  ----------------------------------------------------------------------------
+  Single self-contained file: HTML + vanilla CSS + vanilla JS. No build step.
+  File map (search for these banners):
+    1. CSS: TOKENS / LAYOUT (device) / LCD / CONTROLS / SECTIONS / FX / MEDIA
+    2. HTML: device shell -> bezel -> LCD (tabs, sections, overlays) -> controls
+    3. JS:  CONFIG (all demo data) -> STATE -> SOUND -> PIXEL ART -> RENDER
+            -> NAVIGATION -> INPUT -> FX -> FEATURES -> BOOT -> DESK SCENE -> INIT
+    Desktop (>=1024px) adds a 90s desk scene (CSS+JS 'DESK SCENE'); mobile unchanged.
+  To plug in real data: replace CONFIG (or fetch it by serial, see TODO in INIT).
+  ============================================================================
+-->
+<style>
+/* ===================== 1. TOKENS ===================== */
+:root{
+  /* DMG-era 4-shade LCD palette */
+  --g0:#0f380f; --g1:#306230; --g2:#8bac0f; --g3:#9bbc0f;
+  /* +Y brand (estimated from taikentokyo.com) */
+  --ink:#211F20; --white:#ffffff; --pink:#C8346E; --pink-d:#9e2453;
+  /* console body */
+  --body:#e7e4dc; --body-d:#cbc6bb; --bezel:#4a4955; --bezel-d:#37363f;
+  --px-font:'Press Start 2P', ui-monospace, monospace;
+  --lcd-font:'VT323', ui-monospace, monospace;
+  --safe-t:env(safe-area-inset-top,0px); --safe-b:env(safe-area-inset-bottom,0px);
+  --safe-l:env(safe-area-inset-left,0px); --safe-r:env(safe-area-inset-right,0px);
+  --controls-h:clamp(196px, 27dvh, 236px);
+}
+*,*::before,*::after{box-sizing:border-box}
+html,body{margin:0;padding:0;background:var(--ink);}
+html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
+body{font-family:var(--lcd-font);color:var(--white);overflow-x:hidden;min-height:100vh;min-height:100dvh}
+button,input{font:inherit;color:inherit}
+button{cursor:pointer;-webkit-tap-highlight-color:transparent;touch-action:manipulation}
+a{color:inherit}
+.sr-only{position:absolute!important;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}
+:focus-visible{outline:3px solid var(--pink);outline-offset:2px}
+
+/* ===================== LAYOUT: DEVICE ===================== */
+/* Mobile-first: the device fills the viewport exactly so controls stay in thumb reach. */
+.device{
+  position:relative;width:100%;max-width:460px;margin:0 auto;
+  height:100vh;height:100dvh;display:flex;flex-direction:column;
+  background:linear-gradient(180deg,var(--body),#dedad1);color:var(--ink);
+  padding:calc(var(--safe-t) + 8px) calc(var(--safe-r) + 12px) calc(var(--safe-b) + 6px) calc(var(--safe-l) + 12px);
+  border-bottom-right-radius:56px;
+  box-shadow:inset 0 -6px 0 var(--body-d), inset -4px 0 0 rgba(0,0,0,.06);
+}
+.bezel{
+  flex:1 1 auto;min-height:0;display:flex;flex-direction:column;
+  background:var(--bezel);border-radius:10px 10px 34px 10px;padding:6px 10px 10px;
+  box-shadow:inset 0 2px 0 rgba(255,255,255,.08), 0 1px 0 rgba(255,255,255,.6);
+}
+.bezel-top{display:flex;align-items:center;gap:8px;min-height:44px;color:#c9c8d3}
+.led{width:9px;height:9px;border-radius:50%;background:#3a1220;box-shadow:inset 0 0 0 1px rgba(0,0,0,.4);flex:none;transition:background .3s, box-shadow .3s}
+.led.on{background:#ff3c6e;box-shadow:0 0 8px #ff3c6e}
+.logo-btn{background:none;border:0;padding:0 6px;min-width:44px;min-height:44px;font-family:var(--px-font);font-size:13px;color:var(--white);letter-spacing:1px}
+.logo-btn b{color:var(--pink)}
+.bezel-title{flex:1;font-family:var(--px-font);font-size:7px;line-height:1.5;letter-spacing:1px;color:#b9b8c4;text-transform:uppercase;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sound-btn{min-width:64px;min-height:44px;padding:0 8px;border:0;border-radius:8px;background:var(--bezel-d);color:#e9e8f0;font-family:var(--px-font);font-size:8px;line-height:1.4}
+.sound-btn[aria-pressed="true"]{color:var(--g3)}
+
+/* ===================== LCD ===================== */
+.lcd{
+  position:relative;flex:1 1 auto;min-height:0;display:flex;flex-direction:column;
+  background:var(--g3);color:var(--g0);border-radius:3px;overflow:hidden;
+  box-shadow:inset 0 0 0 2px var(--g1), inset 0 0 22px rgba(15,56,15,.35);
+  isolation:isolate;
+}
+/* dot-matrix grid + scanlines (decorative, never blocks taps) */
+.lcd::after{
+  content:"";position:absolute;inset:0;pointer-events:none;z-index:40;
+  background:
+    repeating-linear-gradient(0deg, rgba(15,56,15,.10) 0 1px, transparent 1px 3px),
+    repeating-linear-gradient(90deg, rgba(15,56,15,.06) 0 1px, transparent 1px 3px);
+  mix-blend-mode:multiply;
+}
+.lcd::before{ /* subtle glass glare */
+  content:"";position:absolute;inset:0;pointer-events:none;z-index:41;
+  background:linear-gradient(160deg, rgba(255,255,255,.18), transparent 35%);
+}
+.tabs{display:flex;flex:none;border-bottom:2px solid var(--g1);background:var(--g2)}
+.tab{flex:1;min-height:44px;border:0;background:transparent;display:grid;place-items:center;padding:0;color:var(--g0)}
+.tab svg{width:18px;height:18px}
+.tab[aria-selected="true"]{background:var(--g0);color:var(--g3)}
+.lcd-scroll{flex:1 1 auto;min-height:0;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;padding:10px 12px 18px;scroll-behavior:smooth}
+.lcd-scroll::-webkit-scrollbar{width:6px}
+.lcd-scroll::-webkit-scrollbar-thumb{background:var(--g1)}
+
+/* ===================== SECTIONS (content inside LCD) ===================== */
+.section[hidden]{display:none}
+.section{font-size:20px;line-height:1.15;overflow-wrap:anywhere}
+.section.enter-next{animation:slideNext .28s steps(5) both}
+.section.enter-prev{animation:slidePrev .28s steps(5) both}
+@keyframes slideNext{from{transform:translateX(40%);opacity:0}to{transform:none;opacity:1}}
+@keyframes slidePrev{from{transform:translateX(-40%);opacity:0}to{transform:none;opacity:1}}
+.sec-head{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:0 0 10px}
+.sec-head h2{font-family:var(--px-font);font-size:12px;line-height:1.4;margin:0}
+.sec-head .count{font-family:var(--px-font);font-size:8px;color:var(--g1);white-space:nowrap}
+.demo-badge{display:inline-block;font-family:var(--px-font);font-size:7px;line-height:1;padding:4px 5px;background:var(--pink);color:var(--white);vertical-align:middle;margin-left:6px}
+.ja{font-family:inherit;color:var(--g1)}
+.card{border:2px solid var(--g0);background:rgba(139,172,15,.35);padding:10px;margin:0 0 12px;box-shadow:3px 3px 0 var(--g1)}
+.card h3{font-family:var(--px-font);font-size:9px;line-height:1.5;margin:0 0 8px}
+.muted{color:var(--g1)}
+.small{font-size:17px}
+dl.kv{display:grid;grid-template-columns:auto 1fr;gap:2px 10px;margin:0}
+dl.kv dt{color:var(--g1)} dl.kv dd{margin:0}
+.serial{font-family:var(--px-font);font-size:13px;letter-spacing:1px;margin:2px 0 6px}
+.hero{display:flex;gap:12px;align-items:center}
+.hero-art{flex:none;width:96px}
+.hero-art svg{width:96px;height:auto;display:block;image-rendering:pixelated;animation:bob 2.4s steps(2) infinite}
+@keyframes bob{50%{transform:translateY(-3px)}}
+.swatch{display:inline-block;width:14px;height:14px;border:2px solid var(--g0);vertical-align:-1px;margin-right:4px}
+ul.parts{list-style:none;margin:0;padding:0}
+ul.parts li{display:flex;gap:8px;padding:4px 0;border-bottom:1px dashed var(--g1)}
+ul.parts li:last-child{border-bottom:0}
+ul.parts .k{color:var(--g1);min-width:76px}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:44px;padding:8px 14px;border:2px solid var(--g0);background:var(--g0);color:var(--g3);font-family:var(--px-font);font-size:9px;line-height:1.4;text-decoration:none;box-shadow:3px 3px 0 var(--g1);text-align:center}
+.btn:active{transform:translate(2px,2px);box-shadow:1px 1px 0 var(--g1)}
+.btn.alt{background:transparent;color:var(--g0)}
+.btn.pink{background:var(--pink);border-color:var(--ink);color:var(--white)}
+.btn.block{display:flex;width:100%}
+.hint{font-family:var(--px-font);font-size:7px;line-height:1.6;color:var(--g1);text-align:center;margin:8px 0 0}
+
+/* Build log timeline */
+ol.timeline{list-style:none;margin:0;padding:0 0 0 6px;border-left:3px solid var(--g0)}
+ol.timeline li{position:relative;padding:0 0 14px 18px}
+ol.timeline .dot{position:absolute;left:-14px;top:0;width:24px;height:24px;background:var(--g3);border:2px solid var(--g0);display:grid;place-items:center}
+ol.timeline .dot svg{width:14px;height:14px}
+.t-time{font-family:var(--px-font);font-size:7px;color:var(--g1)}
+.t-title{font-family:var(--px-font);font-size:9px;line-height:1.5;margin:3px 0}
+.photo{margin-top:6px;aspect-ratio:16/7;border:2px solid var(--g0);display:grid;place-items:center;font-family:var(--px-font);font-size:7px;color:var(--g0);
+  background:repeating-conic-gradient(var(--g2) 0 25%, var(--g3) 0 50%) 0 0/8px 8px}
+.photo span{background:var(--g3);padding:4px 6px;border:2px solid var(--g0)}
+.photo img{width:100%;height:100%;object-fit:cover;image-rendering:auto}
+
+/* Warranty */
+.hp{display:flex;align-items:center;gap:8px;margin:6px 0}
+.hp-label{font-family:var(--px-font);font-size:9px}
+.hp-bar{flex:1;display:grid;grid-template-columns:repeat(20,1fr);gap:2px;padding:3px;border:2px solid var(--g0);background:var(--g3)}
+.hp-bar i{height:12px;background:var(--g2);opacity:.45}
+.hp-bar i.on{background:var(--g0);opacity:1}
+.hp-bar.low i.on{background:var(--pink)}
+.hp-bar.low{animation:blink 1s steps(1) infinite}
+.status-pill{display:inline-block;font-family:var(--px-font);font-size:8px;padding:5px 7px;border:2px solid var(--g0)}
+.status-pill.ok{background:var(--g0);color:var(--g3)}
+form.activate label{display:block;margin:6px 0 4px}
+.input{width:100%;min-height:48px;padding:8px 10px;border:2px solid var(--g0);background:var(--g3);color:var(--g0);font-family:var(--lcd-font);font-size:20px;border-radius:0;-webkit-appearance:none;appearance:none}
+.input::placeholder{color:var(--g1);opacity:.8}
+.check{display:flex;gap:10px;align-items:center;min-height:44px}
+.check input{width:22px;height:22px;accent-color:var(--g0)}
+.err{color:var(--pink-d);min-height:1.2em;margin:4px 0;font-size:18px}
+ul.cover{margin:0;padding-left:18px}
+
+/* Stamps */
+.xp{margin:0 0 12px}
+.xp-top{display:flex;justify-content:space-between;font-family:var(--px-font);font-size:8px;margin-bottom:4px}
+.xp-bar{height:14px;border:2px solid var(--g0);background:var(--g3);padding:2px}
+.xp-fill{height:100%;background:var(--g0);width:0;transition:width .6s steps(10)}
+.stamps{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.stamp{position:relative;min-height:112px;border:2px dashed var(--g1);background:transparent;padding:8px 4px;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;gap:4px;text-align:center;color:var(--g0)}
+.stamp svg{width:34px;height:34px}
+.stamp .s-name{font-family:var(--px-font);font-size:7px;line-height:1.5}
+.stamp .s-ja{font-size:15px;color:var(--g1)}
+.stamp.earned{border-style:solid;border-color:var(--g0);background:rgba(139,172,15,.55);box-shadow:3px 3px 0 var(--g1)}
+.stamp.earned::after{content:"OK";position:absolute;top:3px;right:3px;font-family:var(--px-font);font-size:6px;background:var(--pink);color:var(--white);padding:2px 3px}
+.stamp.locked{opacity:.6}
+.stamp.new{animation:stampIn .5s steps(4)}
+@keyframes stampIn{0%{transform:scale(1.8) rotate(-12deg);opacity:0}100%{transform:none;opacity:1}}
+
+/* Shop */
+.note{border:2px solid var(--ink);background:var(--pink);color:var(--white);padding:8px 10px;margin:0 0 12px;font-size:18px;box-shadow:3px 3px 0 var(--g1)}
+.note b{font-family:var(--px-font);font-size:8px;display:block;margin-bottom:4px}
+.shop-grid{display:grid;grid-template-columns:1fr;gap:10px}
+.item{display:grid;grid-template-columns:56px 1fr;gap:10px;align-items:center}
+.item .ico{width:56px;height:56px;padding:6px;border:2px solid var(--g0);background:var(--g3)}
+.item svg{width:100%;height:100%;display:block}
+.item .tag{font-family:var(--px-font);font-size:6px;background:var(--g0);color:var(--g3);padding:3px 4px;display:inline-block}
+.item .name{margin:4px 0 0}
+.item .price{font-family:var(--px-font);font-size:9px;margin:4px 0 6px}
+.item .btn{min-height:44px;padding:6px 10px;font-size:8px}
+
+/* Community */
+.links{display:grid;gap:8px;margin-bottom:12px}
+.links .btn{justify-content:flex-start;font-size:9px;min-height:52px}
+.links .btn svg{width:18px;height:18px;flex:none}
+.ref-code{font-family:var(--px-font);font-size:14px;letter-spacing:2px;text-align:center;padding:12px 6px;border:2px dashed var(--g0);margin:6px 0 10px;background:var(--g3)}
+.legal{font-size:15px;color:var(--g1);text-align:center;margin-top:14px}
+
+/* ===================== LCD OVERLAYS / FX ===================== */
+.boot{position:absolute;inset:0;z-index:30;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;background:#8a9a5b;color:var(--g0);border:0;width:100%;padding:0;transition:opacity .35s}
+.boot.on{background:var(--g3);animation:powerOn .5s steps(3)}
+@keyframes powerOn{0%{filter:brightness(.3)}50%{filter:brightness(1.4)}100%{filter:none}}
+.boot-logo{font-family:var(--px-font);font-size:46px;letter-spacing:2px;transform:translateY(-60vh)}
+.boot-logo b{color:var(--g0);}
+.boot.on .boot-logo{animation:drop 1.6s steps(16) .25s forwards}
+@keyframes drop{to{transform:translateY(0)}}
+.boot-sub,.boot-ja,.boot-start{opacity:0;font-family:var(--px-font);text-align:center}
+.boot-sub{font-size:10px}
+.boot-ja{font-family:var(--lcd-font);font-size:22px}
+.boot-start{font-size:9px;margin-top:18px}
+.boot.ready .boot-sub,.boot.ready .boot-ja{opacity:1}
+.boot.ready .boot-start{opacity:1;animation:blink 1s steps(1) infinite}
+.boot.done{opacity:0;pointer-events:none}
+@keyframes blink{50%{opacity:0}}
+.fx-canvas{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:35}
+.toast{position:absolute;left:10px;right:10px;bottom:10px;z-index:36;background:var(--g0);color:var(--g3);border:2px solid var(--g3);outline:2px solid var(--g0);padding:8px 10px;font-size:18px;line-height:1.15;transform:translateY(160%);visibility:hidden;transition:transform .2s steps(3),visibility 0s .2s;pointer-events:none}
+.toast.show{transform:none;visibility:visible;transition:transform .2s steps(3)}
+.levelup{position:absolute;inset:0;z-index:37;display:none;place-items:center;background:rgba(15,56,15,.86);color:var(--g3);text-align:center;font-family:var(--px-font)}
+.levelup.show{display:grid}
+.levelup .big{font-size:20px;line-height:1.4;animation:lvl 0.8s steps(4) infinite alternate}
+.levelup .lv{font-size:11px;margin-top:10px}
+@keyframes lvl{from{transform:scale(1)}to{transform:scale(1.12)}}
+
+/* ===================== CONTROLS ===================== */
+.brandline{flex:none;display:flex;align-items:baseline;justify-content:space-between;padding:7px 4px 0;font-family:var(--px-font);color:var(--ink)}
+.brandline .wm{font-size:11px;font-style:italic}
+.brandline .wm b{color:var(--pink)}
+.brandline .loc{font-family:var(--lcd-font);font-size:18px;color:#5b5960}
+.controls{position:relative;overflow:hidden;flex:none;height:var(--controls-h);user-select:none;-webkit-user-select:none;-webkit-touch-callout:none}
+.dpad{position:absolute;left:4px;top:12px;width:150px;height:150px;display:grid;grid-template-columns:repeat(3,50px);grid-template-rows:repeat(3,50px)}
+.dpad::before{content:"";position:absolute;inset:0;margin:auto;width:150px;height:150px;border-radius:50%;background:radial-gradient(circle,rgba(0,0,0,.08) 55%,transparent 56%);z-index:-1}
+.dbtn{border:0;background:#2b2a2e;color:#77757c;padding:0;font-size:14px;display:grid;place-items:center;box-shadow:inset 0 -3px 0 rgba(0,0,0,.45)}
+.dbtn.up{grid-area:1/2;border-radius:6px 6px 0 0}
+.dbtn.left{grid-area:2/1;border-radius:6px 0 0 6px}
+.dbtn.right{grid-area:2/3;border-radius:0 6px 6px 0}
+.dbtn.down{grid-area:3/2;border-radius:0 0 6px 6px}
+.dpad .hub{grid-area:2/2;background:#2b2a2e;display:grid;place-items:center}
+.dpad .hub::after{content:"";width:18px;height:18px;border-radius:50%;background:#232226;box-shadow:inset 0 2px 3px rgba(0,0,0,.5)}
+.ab{position:absolute;right:0;top:22px;width:166px;height:110px;transform:rotate(-24deg)}
+.abtn{position:absolute;width:64px;height:64px;border-radius:50%;border:0;background:var(--pink);color:transparent;box-shadow:0 4px 0 var(--pink-d), 0 6px 10px rgba(0,0,0,.25)}
+.abtn.b{left:6px;top:36px} .abtn.a{right:6px;top:6px}
+.ab .lbl{position:absolute;font-family:var(--px-font);font-size:9px;color:#5a2a40}
+.ab .lbl.b{left:30px;top:106px} .ab .lbl.a{right:30px;top:76px}
+.pressed{transform:translateY(2px);filter:brightness(.85);box-shadow:none!important}
+.ss{position:absolute;left:50%;bottom:4px;transform:translateX(-44%);display:flex;gap:6px}
+.sbtn{width:66px;min-height:46px;border:0;background:transparent;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;padding:0}
+.sbtn i{display:block;width:44px;height:12px;border-radius:8px;background:#77757f;transform:rotate(-24deg);box-shadow:inset 0 -2px 0 rgba(0,0,0,.3)}
+.sbtn span{font-family:var(--px-font);font-size:6px;color:#4d4a55;letter-spacing:1px}
+.grille{position:absolute;right:10px;bottom:6px;display:flex;gap:7px;transform:rotate(-24deg);pointer-events:none}
+.grille i{display:block;width:5px;height:42px;border-radius:3px;background:var(--body-d);box-shadow:inset 1px 1px 2px rgba(0,0,0,.25)}
+
+/* outside the device */
+.below{max-width:460px;margin:0 auto;padding:14px 16px calc(var(--safe-b) + 18px);color:#bdbbc3;font-size:17px;text-align:center}
+.below .keys{display:none}
+.below a{color:#fff;display:inline-block;padding:14px 4px;margin:-14px 0}
+
+/* ===================== MEDIA ===================== */
+@media (max-width:359px){ .dpad{transform:scale(.9);transform-origin:left top} .ab{transform:rotate(-24deg) scale(.9);transform-origin:right top} }
+/* Short landscape phones: let the page scroll instead of crushing the LCD */
+@media (max-height:600px){ .device{height:auto;min-height:100dvh} .lcd{min-height:330px} }
+/* Desktop is secondary: center the device like an object on a table */
+@media (min-width:760px) and (min-height:700px){
+  body{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px 0;
+    background:radial-gradient(circle at 50% 30%,#2e2b2d,var(--ink) 70%)}
+  .device{height:min(900px, calc(100dvh - 90px));border-radius:18px 18px 64px 18px;box-shadow:0 30px 60px rgba(0,0,0,.5), inset 0 -6px 0 var(--body-d)}
+  .below .keys{display:block}
+}
+/* ===================== DESK SCENE (desktop >= 1024px only) =====================
+   A 90s gamer/workshop desk around the handheld. All elements carry .desk-only
+   and are built by JS (Desk module) only when the viewport is >= 1024px, so the
+   mobile experience is untouched. */
+.desk-only{display:none}
+@media (min-width:1024px){
+  body.desk-on{background:#24160e}
+  body.desk-on .desk-only{display:block}
+  body.desk-on .device{z-index:3}
+  body.desk-on .book{display:grid}
+  body.desk-on .below{position:relative;z-index:3;color:#d9c7a8;text-shadow:0 1px 0 #000}
+  /* wood desk + lamp glow */
+  .desk{position:fixed;inset:0;z-index:0;overflow:hidden;pointer-events:none;
+    background:
+      radial-gradient(ellipse 55% 60% at 14% 0%, rgba(255,186,102,.34), rgba(255,160,80,.10) 45%, transparent 70%),
+      repeating-linear-gradient(0deg, transparent 0 157px, rgba(0,0,0,.45) 157px 160px),
+      repeating-linear-gradient(0deg, rgba(255,220,170,.035) 0 2px, transparent 2px 7px, rgba(0,0,0,.06) 7px 9px, transparent 9px 13px),
+      linear-gradient(90deg, #3a2416, #4a2e1b 30%, #3f2717 60%, #33200f);
+  }
+  /* green cutting mat (workshop) under the console */
+  .mat{position:absolute;left:50%;top:50%;width:min(1180px,94vw);height:min(760px,92vh);transform:translate(-50%,-50%) rotate(-1.2deg);
+    border-radius:18px;background:
+      repeating-linear-gradient(90deg, rgba(155,188,15,.10) 0 1px, transparent 1px 40px),
+      repeating-linear-gradient(0deg, rgba(155,188,15,.10) 0 1px, transparent 1px 40px),
+      repeating-linear-gradient(90deg, rgba(155,188,15,.05) 0 1px, transparent 1px 8px),
+      #17281d;
+    box-shadow:0 18px 40px rgba(0,0,0,.55), inset 0 0 0 6px #14231a, inset 0 0 0 8px rgba(200,52,110,.55), inset 0 0 80px rgba(0,0,0,.5)}
+  .mat::after{content:"+Y WORKSHOP · 秋葉原 · CUTTING MAT 40mm";position:absolute;left:24px;bottom:14px;font-family:var(--px-font);font-size:8px;letter-spacing:2px;color:rgba(155,188,15,.35)}
+  .prop{position:absolute;left:var(--x);top:var(--y);
+    transform:translate(calc(var(--mx,0) * var(--d) * 1px), calc(var(--my,0) * var(--d) * 1px)) rotate(var(--r));
+    filter:drop-shadow(4px 6px 0 rgba(0,0,0,.35));will-change:transform}
+  .prop svg{display:block;width:100%;height:auto}
+  /* desk lamp seen from above: dark shade + glowing bulb rim, partly off-screen */
+  .lamp{position:absolute;left:-110px;top:-120px;width:260px;height:260px;border-radius:50%;
+    background:radial-gradient(circle at 62% 62%, #fff6d0 0 14%, #ffd27f 15% 22%, #3a3940 23% 30%, #2a292e 31% 66%, #1b1a1e 67%);
+    box-shadow:0 0 0 4px #121114, 0 0 120px 40px rgba(255,190,110,.18), 12px 18px 30px rgba(0,0,0,.6)}
+  .star{position:absolute;left:var(--x);top:var(--y);width:9px;height:9px;opacity:0;
+    background:conic-gradient(from 0deg, transparent 0 0);animation:twinkle var(--t) steps(4) var(--dl) infinite}
+  .star::before,.star::after{content:"";position:absolute;background:#fff6d6}
+  .star::before{left:3px;top:0;width:3px;height:9px}
+  .star::after{left:0;top:3px;width:9px;height:3px}
+  @keyframes twinkle{0%,70%,100%{opacity:0}80%{opacity:.9}90%{opacity:.35}}
+  /* CRT scanlines + vignette over the whole scene */
+  .crt{position:fixed;inset:0;z-index:5;pointer-events:none;
+    background:
+      radial-gradient(ellipse at 50% 50%, transparent 55%, rgba(0,0,0,.55) 100%),
+      repeating-linear-gradient(0deg, rgba(0,0,0,.10) 0 1px, transparent 1px 3px)}
+
+  /* ---------- paper passport booklet (left) ---------- */
+  .book{position:fixed;z-index:2;top:50%;right:calc(50% + 262px);width:420px;height:290px;
+    transform:translateY(-50%) scale(var(--s,1)) rotate(-4deg);transform-origin:right center;
+    display:grid;grid-template-columns:1fr 1fr;color:var(--ink);font-family:var(--lcd-font);
+    filter:drop-shadow(0 16px 18px rgba(0,0,0,.5))}
+  .book::before{content:"";position:absolute;inset:-8px -8px -10px;border-radius:8px;background:#5b1a35;box-shadow:inset 0 0 0 2px #7a2448;z-index:-1}
+  .book .pg{position:relative;padding:14px 14px 12px;background:
+      radial-gradient(rgba(33,31,32,.07) 1px, transparent 1px) 0 0/6px 6px, #f1e6cd;overflow:hidden}
+  .book .pg.l{border-radius:4px 0 0 4px;box-shadow:inset -18px 0 22px -14px rgba(0,0,0,.35)}
+  .book .pg.r{border-radius:0 4px 4px 0;box-shadow:inset 18px 0 22px -14px rgba(0,0,0,.35)}
+  .bk-title{font-family:var(--px-font);font-size:10px;line-height:1.5;color:var(--pink-d);margin:0 0 2px}
+  .bk-sub{font-size:16px;color:#6d6257;margin:0 0 8px}
+  .bk-row{display:flex;justify-content:space-between;gap:6px;font-size:17px;border-bottom:1px dotted #b9ab90;padding:2px 0}
+  .bk-row span:first-child{color:#7a6e62}
+  .bk-photo{float:right;width:58px;margin:0 0 4px 6px;padding:4px;background:#e4d6b8;border:1px solid #c5b392}
+  .bk-photo svg{display:block;width:100%;height:auto}
+  .bk-lv{font-family:var(--px-font);font-size:9px;margin:10px 0 4px;display:flex;justify-content:space-between}
+  .bk-xp{height:10px;border:2px solid var(--ink);padding:1px;background:#f8f1e1}
+  .bk-xp i{display:block;height:100%;background:var(--pink);width:0;transition:width .6s steps(8)}
+  .bk-mrz{position:absolute;left:14px;right:14px;bottom:10px;font-family:ui-monospace,monospace;font-size:9px;letter-spacing:1px;color:#8a7d6c;white-space:nowrap;overflow:hidden}
+  .bk-stamps{display:grid;grid-template-columns:repeat(3,1fr);gap:8px 6px;margin-top:6px}
+  .ink{width:56px;height:56px;margin:0 auto;border-radius:50%;display:grid;place-items:center;text-align:center;
+    font-family:var(--px-font);font-size:5.5px;line-height:1.5;padding:6px;transform:rotate(var(--r))}
+  .ink.on{color:var(--pink);border:3px double var(--pink);opacity:.86;
+    background:radial-gradient(circle, rgba(200,52,110,.10), transparent 70%);
+    -webkit-mask:radial-gradient(circle at 30% 30%, #000 60%, rgba(0,0,0,.75) 100%);mask:radial-gradient(circle at 30% 30%, #000 60%, rgba(0,0,0,.75) 100%)}
+  .ink.on svg{width:16px;height:16px;display:block;margin:0 auto 2px}
+  .ink.off{color:#b3a588;border:2px dashed #cbbd9f;font-size:14px;font-family:var(--lcd-font)}
+  .ink.thump{animation:thump .45s steps(4)}
+  @keyframes thump{0%{transform:scale(2) rotate(var(--r));opacity:0}100%{transform:scale(1) rotate(var(--r));opacity:.86}}
+
+  /* ---------- standing spec card (right) ---------- */
+  .spec{position:fixed;z-index:2;top:50%;left:calc(50% + 262px);width:290px;
+    transform:translateY(-52%) scale(var(--s,1)) rotate(3deg);transform-origin:left center;
+    color:var(--ink);font-family:var(--lcd-font);filter:drop-shadow(0 18px 16px rgba(0,0,0,.5))}
+  .spec-card{background:#fbfaf6;border-radius:6px;overflow:hidden;border:3px solid var(--ink)}
+  .spec-hd{background:var(--ink);color:#fff;font-family:var(--px-font);font-size:9px;padding:10px 12px;display:flex;justify-content:space-between}
+  .spec-hd b{color:var(--pink)}
+  .spec-bd{padding:10px 12px 12px;background:
+      repeating-linear-gradient(0deg, transparent 0 21px, rgba(33,31,32,.06) 21px 22px)}
+  .spec-serial{font-family:var(--px-font);font-size:13px;margin:2px 0 8px;letter-spacing:1px}
+  .spec-shell{display:flex;align-items:center;gap:8px;font-size:18px;margin-bottom:6px}
+  .spec-shell i{width:22px;height:22px;border:2px solid var(--ink);display:block}
+  .spec ul{list-style:none;margin:0 0 8px;padding:0;font-size:16px}
+  .spec li{display:flex;gap:6px;border-bottom:1px dashed #d5d0c4;padding:2px 0}
+  .spec li span{color:#7b7680;min-width:62px}
+  .spec-hp{display:flex;align-items:center;gap:6px;font-family:var(--px-font);font-size:8px;margin-top:6px}
+  .spec-hp .bar{flex:1;display:grid;grid-template-columns:repeat(20,1fr);gap:1px;border:2px solid var(--ink);padding:2px}
+  .spec-hp .bar i{height:9px;background:#e3e0d6}
+  .spec-hp .bar i.on{background:var(--g1)}
+  .spec-hp .bar.low i.on{background:var(--pink)}
+  .spec-st{font-size:16px;margin-top:4px;display:flex;justify-content:space-between}
+  .spec-st b{font-family:var(--px-font);font-size:8px;padding:3px 5px;border:2px solid var(--ink)}
+  .spec-st b.ok{background:var(--g0);color:var(--g3);border-color:var(--g0)}
+  .spec-stand{width:70%;height:22px;margin:0 auto;background:linear-gradient(180deg,rgba(220,235,240,.55),rgba(160,190,200,.25));
+    clip-path:polygon(8% 0,92% 0,100% 100%,0 100%);box-shadow:inset 0 1px 0 rgba(255,255,255,.6)}
+}
+@media (prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation-duration:.001ms!important;animation-iteration-count:1!important;transition-duration:.001ms!important;scroll-behavior:auto!important}
+  .boot-logo{transform:none}
+}
+</style>
+</head>
+<body>
+<noscript><p style="padding:16px">This passport needs JavaScript. Your console serial is printed on the sticker inside the battery cover.</p></noscript>
+
+<!-- ===================== 2. HTML: DEVICE ===================== -->
+<main class="device" id="device" aria-label="Console Passport handheld">
+  <div class="bezel">
+    <div class="bezel-top">
+      <span class="led" id="led" aria-hidden="true"></span>
+      <button class="logo-btn" id="logoBtn" type="button" aria-label="+Y logo"><b>+</b>Y</button>
+      <span class="bezel-title" aria-hidden="true">Console Passport</span>
+      <button class="sound-btn" id="soundBtn" type="button" aria-pressed="false" aria-label="Sound">♪ OFF</button>
+    </div>
+
+    <div class="lcd" id="lcd">
+      <nav class="tabs" id="tabs" role="tablist" aria-label="Passport sections"></nav>
+      <div class="lcd-scroll" id="lcdScroll" tabindex="-1">
+        <!-- Sections are rendered from CONFIG by JS (see RENDER) -->
+        <section class="section" id="sec-info" role="tabpanel" aria-labelledby="h-info"></section>
+        <section class="section" id="sec-log" role="tabpanel" aria-labelledby="h-log" hidden></section>
+        <section class="section" id="sec-warranty" role="tabpanel" aria-labelledby="h-warranty" hidden></section>
+        <section class="section" id="sec-stamps" role="tabpanel" aria-labelledby="h-stamps" hidden></section>
+        <section class="section" id="sec-shop" role="tabpanel" aria-labelledby="h-shop" hidden></section>
+        <section class="section" id="sec-community" role="tabpanel" aria-labelledby="h-community" hidden></section>
+      </div>
+
+      <canvas class="fx-canvas" id="fx" aria-hidden="true"></canvas>
+      <div class="toast" id="toast" role="status" aria-live="polite"></div>
+      <div class="levelup" id="levelup" aria-hidden="true"><div><div class="big">LEVEL UP!</div><div class="lv" id="levelupLv">LV 2</div></div></div>
+
+      <button class="boot" id="boot" type="button" aria-label="Start Console Passport">
+        <span class="boot-logo" aria-hidden="true"><b>+</b>Y</span>
+        <span class="boot-sub">CONSOLE PASSPORT</span>
+        <span class="boot-ja">秋葉原 WORKSHOP</span>
+        <span class="boot-start">▶ TAP TO START</span>
+      </button>
+    </div>
+  </div>
+
+  <div class="brandline" aria-hidden="true">
+    <span class="wm"><b>+</b>Y WORKSHOP</span>
+    <span class="loc">秋葉原 · TOKYO</span>
+  </div>
+
+  <div class="controls" id="controls" aria-label="Console controls">
+    <div class="dpad">
+      <button class="dbtn up" data-btn="up" type="button" aria-label="Up: scroll up">▲</button>
+      <button class="dbtn left" data-btn="left" type="button" aria-label="Left: previous section">◀</button>
+      <span class="hub" aria-hidden="true"></span>
+      <button class="dbtn right" data-btn="right" type="button" aria-label="Right: next section">▶</button>
+      <button class="dbtn down" data-btn="down" type="button" aria-label="Down: scroll down">▼</button>
+    </div>
+    <div class="ab">
+      <button class="abtn b" data-btn="b" type="button" aria-label="B: back">B</button>
+      <button class="abtn a" data-btn="a" type="button" aria-label="A: select">A</button>
+      <span class="lbl b" aria-hidden="true">B</span><span class="lbl a" aria-hidden="true">A</span>
+    </div>
+    <div class="ss">
+      <button class="sbtn" data-btn="select" type="button" aria-label="Select: toggle sound"><i></i><span>SELECT</span></button>
+      <button class="sbtn" data-btn="start" type="button" aria-label="Start: home"><i></i><span>START</span></button>
+    </div>
+    <div class="grille" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></div>
+  </div>
+</main>
+
+<footer class="below">
+  <p class="keys">Keyboard: ← → sections · ↑ ↓ scroll · X / Enter = A · Z = B · Shift = Select · Esc = Start</p>
+  <p>© +Y Workshop · <a href="https://taikentokyo.com" rel="noopener">taikentokyo.com</a> · Prototype with demo data.<br>Not affiliated with Nintendo.</p>
+</footer>
+
+<script>
+/* =====================================================================
+   3. JS — CONFIG: ALL DEMO DATA LIVES HERE. Swap with real data later.
+   ===================================================================== */
+const CONFIG = {
+  isDemo: true,
+  shop: {
+    name: '+Y Workshop', nameJa: '秋葉原',
+    city: 'Akihabara, Tokyo',
+    site: 'https://taikentokyo.com',
+    instagram: 'https://www.instagram.com/plus.y_gbmod/',
+    reserveUrl: '#todo-reserve',            // TODO: booking / DM link
+  },
+  console: {
+    serial: 'PY-2026-00421',
+    model: 'Original DMG-01 era handheld',
+    buildDate: '2026-09-12',                 // YYYY-MM-DD (JST)
+    location: 'Akihabara, Tokyo (秋葉原)',
+    builder: 'Alex (demo)',
+    guide: 'Yuki (demo staff)',
+    workshop: 'Classic Handheld Mod · ~2h',
+    shell:   { name: 'Midnight Teal (clear)', hex: '#1f6f78' },
+    buttons: { name: 'Raspberry A/B · black D-pad', hex: '#C8346E' },
+    parts: [
+      { k: 'Shell',   v: 'Midnight Teal clear shell' },
+      { k: 'Screen',  v: 'IPS backlit LCD (laminated)' },
+      { k: 'Buttons', v: 'Raspberry A/B, black D-pad, silicone pads' },
+      { k: 'Speaker', v: 'Loud speaker upgrade' },
+      { k: 'Power',   v: '2×AA (USB-C Li-ion ready)' },
+    ],
+  },
+  // Secret shell unlocked by the easter egg
+  secretShell: { name: 'Golden 秋葉原 Edition ★', hex: '#d4a72c', buttonsHex: '#211F20' },
+  warranty: {
+    months: 3,            // on-site, not yet registered
+    activatedMonths: 6,   // Y5: after passport activation
+    covers: ['Screen & backlight faults', 'Button / contact issues', 'Wiring & solder joints from your build'],
+    excludes: ['Water or drop damage', 'Third-party repairs'],
+  },
+  buildLog: [
+    { t: '00:00', icon: 'screwdriver', title: 'Teardown', ja: '分解', desc: 'Opened the original shell with a tri-wing driver.', photo: null },
+    { t: '00:15', icon: 'sparkle', title: 'Board clean-up', ja: '清掃', desc: 'Cleaned contacts and checked the mainboard.', photo: null },
+    { t: '00:40', icon: 'screen', title: 'IPS screen install', ja: '液晶交換', desc: 'Fitted the laminated IPS backlit panel.', photo: null },
+    { t: '01:10', icon: 'bolt', title: 'Solder & wiring', ja: 'はんだ付け', desc: 'Wired brightness control and the speaker.', photo: null },
+    { t: '01:35', icon: 'button', title: 'Buttons & shell', ja: '組み立て', desc: 'New pads, raspberry buttons, closed the shell.', photo: null },
+    { t: '01:55', icon: 'heart', title: 'First boot!', ja: '起動', desc: 'Ding! Test cart booted on the first try.', photo: null },
+  ],
+  stamps: [
+    { id: 'gb',        name: 'GB Workshop',  ja: '完成',     icon: 'console',  xp: 300, earned: true,  hint: 'Built your first handheld at +Y!' },
+    { id: 'gba',       name: 'GBA Workshop', ja: '次の冒険', icon: 'wide',     xp: 300, earned: false, hint: 'Locked — book the GBA workshop on your next Tokyo trip.' },
+    { id: 'battery',   name: 'Battery Swap', ja: '電池交換', icon: 'battery',  xp: 100, earned: false, hint: 'Buy a game at +Y — the battery swap is free.' },
+    { id: 'community', name: 'Community',    ja: '仲間',     icon: 'chat',     xp: 100, earned: false, hint: 'Join any +Y community channel to earn this.' },
+    { id: 'referral',  name: 'Referral',     ja: '紹介',     icon: 'heart',    xp: 150, earned: false, hint: 'Share your referral code with a friend.' },
+    { id: 'warranty',  name: 'Warranty On',  ja: '保証',     icon: 'shield',   xp: 100, earned: false, hint: 'Activate your warranty in the Warranty tab.' },
+  ],
+  secretStamp: { id: 'secret', name: 'Secret Found', ja: '隠し', icon: 'star', xp: 150, hint: 'You found the secret. 秘密!' },
+  xpPerLevel: 200,
+  shopItems: [
+    { id: 'cart1', tag: 'GAME',  name: 'Mystery Retro Cart (JP)',       ja: 'ゲーム', price: 2980, color: '#0f380f', icon: 'cart' },
+    { id: 'cart2', tag: 'GAME',  name: 'Puzzle Classic Cart (JP)',      ja: 'パズル', price: 1980, color: '#306230', icon: 'cart' },
+    { id: 'shell', tag: 'MATCH', name: 'Spare clear shell · Teal',      ja: 'シェル', price: 2500, color: '#1f6f78', icon: 'console' },
+    { id: 'batt',  tag: 'PART',  name: 'USB-C rechargeable battery kit',ja: '充電',   price: 3800, color: '#C8346E', icon: 'battery' },
+    { id: 'pouch', tag: 'GOODS', name: '+Y carry pouch',                ja: 'ポーチ', price: 1500, color: '#211F20', icon: 'heart' },
+  ],
+  community: [
+    { id: 'discord',    label: 'Discord',          icon: 'chat',  url: '#todo-discord' },
+    { id: 'whatsapp',   label: 'WhatsApp Channel', icon: 'chat',  url: '#todo-whatsapp' },
+    { id: 'newsletter', label: 'Newsletter',       icon: 'star',  url: '#todo-newsletter' },
+    { id: 'instagram',  label: 'Instagram @plus.y_gbmod', icon: 'heart', url: 'https://www.instagram.com/plus.y_gbmod/' },
+  ],
+  referral: { code: 'PLUSY-ALEX', perk: 'Friends get ¥500 off their workshop (demo).' },
+};
+
+/* ===================== STATE (localStorage) ===================== */
+const STORE_KEY = 'plusyPassport:v1:' + CONFIG.console.serial;
+const state = Object.assign(
+  { warrantyEmail: null, activatedAt: null, newsletter: false, stamps: {}, secret: false, secretOn: false, sound: true },
+  safeParse(localStorage.getItem(STORE_KEY))
+);
+function safeParse(s){ try { return JSON.parse(s) || {}; } catch(e){ return {}; } }
+function save(){ try { localStorage.setItem(STORE_KEY, JSON.stringify(state)); } catch(e){} }
+const reduceMotion = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+/* ===================== SOUND (WebAudio, synthesized 8-bit) ===================== */
+// AudioContext is only created after a user gesture (browser autoplay rules).
+const Sound = {
+  ctx: null, master: null,
+  unlock(){
+    if (!this.ctx){
+      const AC = window.AudioContext || window.webkitAudioContext;
+      if (!AC) return;
+      this.ctx = new AC();
+      this.master = this.ctx.createGain(); this.master.gain.value = 0.6;
+      this.master.connect(this.ctx.destination);
+    }
+    if (this.ctx.state === 'suspended') this.ctx.resume();
+  },
+  get ready(){ return state.sound && this.ctx && this.ctx.state !== 'closed'; },
+  tone(freq, start, dur, { type = 'square', vol = 0.07, slide } = {}){
+    if (!this.ready) return;
+    const c = this.ctx, t = c.currentTime + start;
+    const o = c.createOscillator(), g = c.createGain();
+    o.type = type; o.frequency.setValueAtTime(freq, t);
+    if (slide) o.frequency.exponentialRampToValueAtTime(slide, t + dur);
+    g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    o.connect(g); g.connect(this.master); o.start(t); o.stop(t + dur + 0.03);
+  },
+  blip(){ this.tone(880, 0, 0.05, { vol: 0.04 }); },
+  move(){ this.tone(520, 0, 0.04, { vol: 0.035 }); },
+  ding(){ this.tone(1046.5, 0, 0.09, { vol: 0.06 }); this.tone(2093, 0.09, 0.9, { vol: 0.06 }); },
+  coin(){ this.tone(988, 0, 0.07); this.tone(1319, 0.07, 0.3); },
+  error(){ this.tone(220, 0, 0.12, { slide: 110 }); },
+  levelUp(){ [523, 659, 784, 1047, 784, 1047].forEach((f, i) => this.tone(f, i * 0.08, 0.12)); },
+  // Original short chiptune for the easter egg (melody + bass)
+  tune(){
+    const mel = [659,0,784,880,784,659,587,659, 523,587,659,784,659,0,1047,0];
+    const bass = [165,165,196,196,147,147,165,165];
+    mel.forEach((f,i)=>{ if (f) this.tone(f, i*0.12, 0.11, { vol: 0.05 }); });
+    bass.forEach((f,i)=> this.tone(f, i*0.24, 0.2, { type: 'triangle', vol: 0.09 }));
+  },
+};
+
+/* ===================== PIXEL ART (SVG from text maps) ===================== */
+// '.' = transparent; '#' = currentColor; other letters map via palette.
+const ICONS = {
+  console:    ['######','#....#','#....#','######','#.#..#','###.##','#.#..#','######'],
+  wrench:     ['.....##.','....#..#','.....#.#','....###.','...###..','..###...','.###....','##......'],
+  shield:     ['########','#......#','#..##..#','#.####.#','#..##..#','.#....#.','..#..#..','...##...'],
+  star:       ['...##...','...##...','########','.######.','..####..','.######.','.##..##.','##....##'],
+  cart:       ['######..','#....##.','#.##..#.','#.##..#.','#.....#.','#.#.#.#.','#######.'],
+  chat:       ['########','#......#','#.#.#..#','#......#','########','..##....','.#......'],
+  screwdriver:['......##','.....###','....###.','...#.#..','..##....','.##.....','##......','#.......'],
+  sparkle:    ['...#....','...#....','.#####..','...#..#.','...#.###','......#.','.#......','###.....'],
+  screen:     ['########','#......#','#.####.#','#.####.#','#.####.#','#......#','########','..####..'],
+  bolt:       ['....###.','...###..','..###...','.######.','...###..','..###...','.##.....','#.......'],
+  button:     ['..#.....','.###..##','..#...##','........','.##.##..','........'],
+  heart:      ['.##.##..','#######.','#######.','.#####..','..###...','...#....'],
+  lock:       ['..###...','.#...#..','.#...#..','#######.','###.###.','###.###.','#######.'],
+  battery:    ['..##....','.####...','.#..#...','.####...','.####...','.####...','.####...'],
+  wide:       ['##########','#.#....#.#','###....###','#.#....#.#','##########'],
+  info:       ['######','#....#','#....#','######','#.#..#','###.##','#.#..#','######'],
+};
+const CONSOLE_MAP = [
+  '.SSSSSSSSSSSS.','SSSSSSSSSSSSSD','SBBBBBBBBBBBSD','SBLLLLLLLLLBSD','SRLLLLLLLLLBSD',
+  'SBLLLLLLLLLBSD','SBLLLLLLLLLBSD','SBLLLLLLLLLBSD','SBBBBBBBBBBBSD','SSSSSSSSSSSSSD',
+  'SSKSSSSSSSSSSD','SKKKSSSSSSPSSD','SSKSSSSSPSSSSD','SSSSSSSSSSSSSD','SSSSSkSkSSSSSD',
+  'SSSSSSSSSSSgSD','SSSSSSSSSSgSSD','SSSSSSSSSgSSSD','DSSSSSSSSSSSDD','.DDDDDDDDDDDD.',
+];
+function shade(hex, f){
+  const n = parseInt(hex.slice(1), 16);
+  const ch = s => Math.max(0, Math.min(255, Math.round(((n >> s) & 255) * f)));
+  return '#' + [16, 8, 0].map(s => ch(s).toString(16).padStart(2, '0')).join('');
+}
+function pixelSVG(map, palette = {}, label = ''){
+  const w = Math.max(...map.map(r => r.length)), h = map.length;
+  let rects = '';
+  map.forEach((row, y) => [...row].forEach((c, x) => {
+    if (c === '.') return;
+    const fill = c === '#' ? 'currentColor' : (palette[c] || 'currentColor');
+    rects += `<rect x="${x}" y="${y}" width="1.02" height="1.02" fill="${fill}"/>`;
+  }));
+  const a11y = label ? `role="img" aria-label="${esc(label)}"` : 'aria-hidden="true"';
+  return `<svg viewBox="0 0 ${w} ${h}" shape-rendering="crispEdges" ${a11y}>${rects}</svg>`;
+}
+const icon = (name, label) => pixelSVG(ICONS[name] || ICONS.star, {}, label);
+function consoleArt(){
+  const s = currentShell();
+  return pixelSVG(CONSOLE_MAP, {
+    S: s.hex, D: shade(s.hex, 0.7), g: shade(s.hex, 0.55), B: '#4a4955', L: '#8bac0f',
+    R: '#ff3c6e', K: '#211F20', P: s.buttonsHex, k: '#77757f',
+  }, `Pixel art of your console in ${s.name}`);
+}
+function currentShell(){
+  if (state.secret && state.secretOn) return CONFIG.secretShell;
+  return { name: CONFIG.console.shell.name, hex: CONFIG.console.shell.hex, buttonsHex: CONFIG.console.buttons.hex };
+}
+
+/* ===================== HELPERS ===================== */
+const $ = (s, r = document) => r.querySelector(s);
+function esc(s){ return String(s).replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c])); }
+const yen = n => '¥' + n.toLocaleString('en-US');
+const fmtDate = d => d.toLocaleDateString('en-CA', { timeZone: 'Asia/Tokyo' }); // YYYY-MM-DD
+const demo = () => CONFIG.isDemo ? '<span class="demo-badge">DEMO</span>' : '';
+
+/* ===================== SECTIONS REGISTRY ===================== */
+const SECTIONS = [
+  { id: 'info',      title: 'Console Info', icon: 'info',    render: renderInfo,      primary: () => go(current + 1) },
+  { id: 'log',       title: 'Build Log',    icon: 'wrench',  render: renderLog,       primary: () => go(current + 1) },
+  { id: 'warranty',  title: 'Warranty',     icon: 'shield',  render: renderWarranty,  primary: () => { const i = $('#email'); if (i) i.focus(); else go(current + 1); } },
+  { id: 'stamps',    title: 'Stamps',       icon: 'star',    render: renderStamps,    primary: () => go(current + 1) },
+  { id: 'shop',      title: 'Shop',         icon: 'cart',    render: renderShop,      primary: () => go(current + 1) },
+  { id: 'community', title: 'Community',    icon: 'chat',    render: renderCommunity, primary: () => copyReferral() },
+];
+let current = 0;
+
+function head(sec, extra = ''){
+  const i = SECTIONS.findIndex(s => s.id === sec);
+  return `<div class="sec-head"><h2 id="h-${sec}">${esc(SECTIONS[i].title)}${extra}</h2><span class="count">${i + 1}/${SECTIONS.length}</span></div>`;
+}
+
+/* ===================== RENDER ===================== */
+function renderInfo(){
+  const c = CONFIG.console, s = currentShell();
+  return head('info', demo()) + `
+  <div class="card hero">
+    <div class="hero-art">${consoleArt()}</div>
+    <div>
+      <div class="muted small">SERIAL</div>
+      <div class="serial">${esc(c.serial)}</div>
+      <div><span class="swatch" style="background:${s.hex}"></span>${esc(s.name)}</div>
+      <div class="muted small">${esc(c.model)}</div>
+    </div>
+  </div>
+  ${state.secret ? `<button class="btn alt block" type="button" data-action="toggle-shell" style="margin-bottom:12px">${state.secretOn ? 'Show original shell' : 'Show secret shell +'}</button>` : ''}
+  <div class="card">
+    <h3>Build record</h3>
+    <dl class="kv">
+      <dt>Built</dt><dd>${esc(c.buildDate)}</dd>
+      <dt>Where</dt><dd>${esc(c.location)}</dd>
+      <dt>Builder</dt><dd>${esc(c.builder)}</dd>
+      <dt>Guide</dt><dd>${esc(c.guide)}</dd>
+      <dt>Course</dt><dd>${esc(c.workshop)}</dd>
+    </dl>
+  </div>
+  <div class="card">
+    <h3>Parts list</h3>
+    <ul class="parts">${c.parts.map(p => `<li><span class="k">${esc(p.k)}</span><span>${esc(p.v)}</span></li>`).join('')}</ul>
+  </div>
+  <p class="hint">◀ ▶ / SWIPE = SECTIONS · ▲ ▼ = SCROLL · A = NEXT</p>`;
+}
+
+function renderLog(){
+  return head('log', demo()) + `
+  <p class="muted small" style="margin:0 0 12px">Your ~2h build, step by step. 作業ログ</p>
+  <ol class="timeline">${CONFIG.buildLog.map((s, i) => `
+    <li>
+      <span class="dot">${icon(s.icon)}</span>
+      <div class="t-time">T+${esc(s.t)}</div>
+      <div class="t-title">${esc(s.title)} <span class="ja">${esc(s.ja)}</span></div>
+      <div>${esc(s.desc)}</div>
+      <div class="photo">${s.photo ? `<img src="${esc(s.photo)}" alt="${esc(s.title)} photo" loading="lazy">` : `<span>PHOTO ${i + 1} · SOON</span>`}</div>
+    </li>`).join('')}
+  </ol>`;
+}
+
+function warrantyMonths(){ return state.warrantyEmail ? Math.max(CONFIG.warranty.months, CONFIG.warranty.activatedMonths || 6) : CONFIG.warranty.months; }
+function warrantyInfo(){
+  const start = new Date(CONFIG.console.buildDate + 'T00:00:00+09:00');
+  const end = new Date(start); end.setMonth(end.getMonth() + warrantyMonths());
+  const total = Math.round((end - start) / 864e5);
+  const left = Math.max(0, Math.min(total, Math.ceil((end - Date.now()) / 864e5)));
+  return { start, end, total, left, pct: total ? left / total : 0 };
+}
+function renderWarranty(){
+  const w = warrantyInfo(), on = !!state.warrantyEmail;
+  const segs = 20, filled = Math.ceil(w.pct * segs), low = w.pct < 0.2;
+  const bar = Array.from({ length: segs }, (_, i) => `<i class="${i < filled ? 'on' : ''}"></i>`).join('');
+  const form = on ? `
+    <div class="card">
+      <h3>Registered</h3>
+      <dl class="kv"><dt>Email</dt><dd>${esc(maskEmail(state.warrantyEmail))}</dd>
+      <dt>Since</dt><dd>${esc(fmtDate(new Date(state.activatedAt)))}</dd></dl>
+      <button class="btn alt block" type="button" data-action="reset-demo" style="margin-top:10px">Reset demo data</button>
+    </div>` : `
+    <form class="card activate" id="activateForm" novalidate>
+      <h3>Activate warranty</h3>
+      <p class="small" style="margin:0 0 4px">Enter your email so we can find your console if anything goes wrong. 保証登録</p>
+      <label for="email">Email</label>
+      <input class="input" id="email" name="email" type="email" inputmode="email" autocomplete="email" autocapitalize="off" spellcheck="false" placeholder="you@example.com" required>
+      <label class="check"><input type="checkbox" name="newsletter"> <span>Also send me the +Y newsletter</span></label>
+      <div class="err" id="emailErr" aria-live="assertive"></div>
+      <button class="btn pink block" type="submit">▶ Activate (A)</button>
+    </form>`;
+  return head('warranty', demo()) + `
+  <div class="card">
+    <span class="status-pill ${on ? 'ok' : ''}">${on ? '✓ ACTIVE' : 'NOT ACTIVATED'}</span>
+    <div class="hp"><span class="hp-label">HP</span><div class="hp-bar ${low ? 'low' : ''}" role="meter" aria-label="Warranty remaining" aria-valuemin="0" aria-valuemax="${w.total}" aria-valuenow="${w.left}">${bar}</div></div>
+    <div><b>${w.left}</b> / ${w.total} days left${low ? ' · LOW HP!' : ''}</div>
+    <div class="muted small">${esc(fmtDate(w.start))} → ${esc(fmtDate(w.end))} (${warrantyMonths()} months)</div>
+  </div>
+  ${form}
+  <div class="card">
+    <h3>Covered</h3><ul class="cover">${CONFIG.warranty.covers.map(c => `<li>${esc(c)}</li>`).join('')}</ul>
+    <h3 style="margin-top:10px">Not covered</h3><ul class="cover">${CONFIG.warranty.excludes.map(c => `<li>${esc(c)}</li>`).join('')}</ul>
+    <p class="small muted" style="margin:8px 0 0">Overseas? Message us on Instagram with your serial — we'll guide a fix by mail. (demo policy)</p>
+  </div>`;
+}
+function maskEmail(e){ const [u, d] = e.split('@'); return (u.length > 2 ? u.slice(0, 2) + '***' : u + '***') + '@' + d; }
+
+function allStamps(){ return CONFIG.stamps.concat(state.secret ? [CONFIG.secretStamp] : []); }
+const isEarned = s => !!(s.earned || state.stamps[s.id]);
+const totalXP = () => allStamps().filter(isEarned).reduce((a, s) => a + s.xp, 0);
+const levelOf = xp => Math.floor(xp / CONFIG.xpPerLevel) + 1;
+function renderStamps(newId){
+  const xp = totalXP(), lv = levelOf(xp), into = xp % CONFIG.xpPerLevel;
+  const got = allStamps().filter(isEarned).length;
+  return head('stamps', demo()) + `
+  <div class="xp card">
+    <div class="xp-top"><span>LV ${lv}</span><span>${into}/${CONFIG.xpPerLevel} XP</span></div>
+    <div class="xp-bar" role="progressbar" aria-label="XP to next level" aria-valuemin="0" aria-valuemax="${CONFIG.xpPerLevel}" aria-valuenow="${into}"><div class="xp-fill" id="xpFill" data-w="${(into / CONFIG.xpPerLevel) * 100}"></div></div>
+    <div class="small muted" style="margin-top:4px">${got}/${allStamps().length} stamps · total ${xp} XP · スタンプ帳</div>
+  </div>
+  <div class="stamps">${allStamps().map(s => {
+    const e = isEarned(s);
+    return `<button type="button" class="stamp ${e ? 'earned' : 'locked'} ${s.id === newId ? 'new' : ''}" data-action="stamp" data-id="${s.id}" aria-label="${esc(s.name)}: ${e ? 'earned' : 'locked'}">
+      ${icon(e ? s.icon : 'lock')}<span class="s-name">${esc(s.name)}</span><span class="s-ja">${esc(s.ja)} · ${s.xp}XP</span></button>`;
+  }).join('')}</div>
+  <p class="hint">TAP A STAMP FOR HOW TO EARN IT</p>`;
+}
+
+function renderShop(){
+  return head('shop', demo()) + `
+  <div class="note"><b>+ FREE BATTERY SWAP +</b>Battery swap is free for games bought at +Y. ゲーム購入で電池交換無料</div>
+  <div class="shop-grid">${CONFIG.shopItems.map(it => `
+    <div class="card item">
+      <div class="ico" style="color:${it.color}">${icon(it.icon)}</div>
+      <div>
+        <span class="tag">${esc(it.tag)}</span>
+        <div class="name">${esc(it.name)} <span class="ja">${esc(it.ja)}</span></div>
+        <div class="price">${yen(it.price)} <span class="muted" style="font-size:7px">(demo)</span></div>
+        <button class="btn alt" type="button" data-action="reserve" data-id="${it.id}">Reserve in store</button>
+      </div>
+    </div>`).join('')}
+  </div>`;
+}
+
+function renderCommunity(){
+  return head('community', demo()) + `
+  <div class="links">${CONFIG.community.map(l => `
+    <a class="btn ${l.id === 'instagram' ? 'pink' : ''}" href="${esc(l.url)}" ${l.url.startsWith('http') ? 'target="_blank" rel="noopener"' : ''} data-action="community" data-id="${l.id}">${icon(l.icon)}<span>${esc(l.label)}</span></a>`).join('')}
+  </div>
+  <div class="card">
+    <h3>Your referral code</h3>
+    <div class="ref-code" id="refCode">${esc(CONFIG.referral.code)}</div>
+    <button class="btn pink block" type="button" data-action="copy-ref">Copy code (A)</button>
+    <p class="small" style="margin:8px 0 0">${esc(CONFIG.referral.perk)}</p>
+  </div>
+  <p class="legal">+Y Workshop · ${esc(CONFIG.shop.city)} 秋葉原<br>Prototype · demo data · Not affiliated with Nintendo.</p>`;
+}
+
+function refresh(id, arg){
+  const el = $('#sec-' + id), sec = SECTIONS.find(s => s.id === id);
+  el.innerHTML = sec.render(arg);
+  if (id === 'stamps') requestAnimationFrame(() => { const f = $('#xpFill'); if (f) f.style.width = f.dataset.w + '%'; });
+  if (id === 'warranty') bindWarranty();
+  Desk.update(id === 'stamps' ? arg : undefined);   // keep desktop desk props in sync
+}
+
+/* ===================== NAVIGATION ===================== */
+function renderTabs(){
+  $('#tabs').innerHTML = SECTIONS.map((s, i) =>
+    `<button class="tab" role="tab" type="button" id="tab-${s.id}" aria-controls="sec-${s.id}" aria-selected="${i === current}" aria-label="${esc(s.title)}" data-tab="${i}">${icon(s.icon)}</button>`).join('');
+}
+function go(i, opts = {}){
+  const n = SECTIONS.length, next = ((i % n) + n) % n;
+  const dir = opts.dir || (next > current || (current === n - 1 && next === 0) ? 'next' : 'prev');
+  if (next === current && !opts.force) return;
+  SECTIONS.forEach((s, k) => { const el = $('#sec-' + s.id); el.hidden = k !== next; el.classList.remove('enter-next', 'enter-prev'); });
+  current = next;
+  const el = $('#sec-' + SECTIONS[next].id);
+  if (SECTIONS[next].id === 'stamps') refresh('stamps');
+  if (!reduceMotion() && !opts.instant){ void el.offsetWidth; el.classList.add('enter-' + dir); }
+  $('#lcdScroll').scrollTop = 0;
+  document.querySelectorAll('.tab').forEach((t, k) => t.setAttribute('aria-selected', k === next));
+  history.replaceState(null, '', '#' + SECTIONS[next].id);
+  Sound.move();
+}
+
+/* ===================== INPUT: on-screen buttons, keyboard, swipe ===================== */
+const KONAMI = ['up','up','down','down','left','right','left','right','b','a'];
+let inputHistory = [];
+function press(btn){
+  if (!bootDone){ finishBoot(); return; }
+  inputHistory = inputHistory.concat(btn).slice(-KONAMI.length);
+  if (inputHistory.join() === KONAMI.join()){ inputHistory = []; unlockSecret(); return; }
+  const scroller = $('#lcdScroll');
+  switch (btn){
+    case 'left':  go(current - 1, { dir: 'prev' }); break;
+    case 'right': go(current + 1, { dir: 'next' }); break;
+    case 'up':    scroller.scrollBy({ top: -scroller.clientHeight * 0.6, behavior: reduceMotion() ? 'auto' : 'smooth' }); Sound.blip(); break;
+    case 'down':  scroller.scrollBy({ top:  scroller.clientHeight * 0.6, behavior: reduceMotion() ? 'auto' : 'smooth' }); Sound.blip(); break;
+    case 'a': {
+      const f = document.activeElement;
+      if (f && scroller.contains(f) && f.matches('button, a, [data-action]')) { f.click(); }
+      else SECTIONS[current].primary();
+      Sound.blip(); break;
+    }
+    case 'b':
+      if ($('#levelup').classList.contains('show')) hideLevelUp();
+      else go(current - 1, { dir: 'prev' });
+      break;
+    case 'start':  go(0, { dir: 'prev' }); break;
+    case 'select': toggleSound(); break;
+  }
+}
+function bindControls(){
+  document.querySelectorAll('[data-btn]').forEach(b => {
+    b.addEventListener('pointerdown', () => { b.classList.add('pressed'); Sound.unlock(); if (navigator.vibrate) navigator.vibrate(8); });
+    ['pointerup', 'pointerleave', 'pointercancel'].forEach(ev => b.addEventListener(ev, () => b.classList.remove('pressed')));
+    b.addEventListener('click', () => press(b.dataset.btn));
+  });
+  $('#tabs').addEventListener('click', e => { const t = e.target.closest('[data-tab]'); if (t) go(+t.dataset.tab); });
+
+  const KEYMAP = { ArrowUp: 'up', ArrowDown: 'down', ArrowLeft: 'left', ArrowRight: 'right', x: 'a', X: 'a', a: 'a', A: 'a', Enter: 'a', z: 'b', Z: 'b', b: 'b', B: 'b', Backspace: 'b', Escape: 'start', Shift: 'select' };
+  document.addEventListener('keydown', e => {
+    const t = e.target, typing = t.matches && t.matches('input, textarea, select');
+    if (typing && e.key !== 'Escape') return;           // never hijack typing
+    if ((e.key === 'Enter' || e.key === ' ') && t.matches && t.matches('button, a') && bootDone) return; // native activation
+    const btn = KEYMAP[e.key];
+    if (!btn) return;
+    e.preventDefault(); Sound.unlock();
+    const el = document.querySelector(`[data-btn="${btn}"]`);
+    if (el){ el.classList.add('pressed'); setTimeout(() => el.classList.remove('pressed'), 120); }
+    press(btn);
+  });
+
+  // Horizontal swipe on the LCD switches sections; vertical stays native scroll.
+  let sx = 0, sy = 0, st = 0;
+  const lcd = $('#lcd');
+  lcd.addEventListener('touchstart', e => { const p = e.touches[0]; sx = p.clientX; sy = p.clientY; st = Date.now(); }, { passive: true });
+  lcd.addEventListener('touchend', e => {
+    if (!bootDone) return;
+    const p = e.changedTouches[0], dx = p.clientX - sx, dy = p.clientY - sy;
+    if (Math.abs(dx) > 55 && Math.abs(dx) > Math.abs(dy) * 1.6 && Date.now() - st < 700){
+      if (e.target.closest('input')) return;
+      go(current + (dx < 0 ? 1 : -1), { dir: dx < 0 ? 'next' : 'prev' });
+    }
+  }, { passive: true });
+
+  // Delegated actions inside sections
+  $('#lcdScroll').addEventListener('click', e => {
+    const a = e.target.closest('[data-action]'); if (!a) return;
+    const id = a.dataset.id;
+    switch (a.dataset.action){
+      case 'copy-ref': copyReferral(); break;
+      case 'community': {
+        const link = CONFIG.community.find(l => l.id === id);
+        if (link.url.startsWith('#')){ e.preventDefault(); toast(`${link.label}: demo link — set CONFIG.community`); }
+        earn('community'); break;
+      }
+      case 'reserve': {
+        const it = CONFIG.shopItems.find(x => x.id === id);
+        toast(`Reserved (demo): ${it.name}. Show this at the counter!`);
+        if (it.tag === 'GAME') setTimeout(() => toast('Tip: games bought at +Y get a free battery swap ★'), 2200);
+        Sound.coin(); break;
+      }
+      case 'stamp': {
+        const s = allStamps().find(x => x.id === id);
+        toast((isEarned(s) ? '✓ ' : '🔒 ') + s.hint); Sound.blip(); break;
+      }
+      case 'toggle-shell': state.secretOn = !state.secretOn; save(); refresh('info'); Sound.coin(); break;
+      case 'reset-demo':
+        if (confirm('Reset demo passport data on this device?')){ localStorage.removeItem(STORE_KEY); location.reload(); }
+        break;
+    }
+  });
+
+  // Logo: tap 5 times quickly = easter egg
+  let taps = [];
+  $('#logoBtn').addEventListener('click', () => {
+    Sound.unlock(); const now = Date.now();
+    taps = taps.filter(t => now - t < 2000).concat(now);
+    Sound.blip();
+    if (taps.length >= 5){ taps = []; unlockSecret(); }
+  });
+  $('#soundBtn').addEventListener('click', () => toggleSound());
+}
+
+/* ===================== FX: toast, confetti, level up ===================== */
+let toastTimer;
+function toast(msg){
+  const t = $('#toast'); t.textContent = msg; t.classList.add('show');
+  clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.remove('show'), 2600);
+}
+function confetti(){
+  if (reduceMotion()) return;
+  const cv = $('#fx'), lcd = $('#lcd'), dpr = Math.min(2, window.devicePixelRatio || 1);
+  const W = lcd.clientWidth, H = lcd.clientHeight;
+  cv.width = W * dpr; cv.height = H * dpr;
+  const ctx = cv.getContext('2d'); ctx.scale(dpr, dpr);
+  const colors = ['#0f380f', '#306230', '#8bac0f', '#C8346E', '#ffffff'];
+  const ps = Array.from({ length: 90 }, () => ({
+    x: W / 2 + (Math.random() - 0.5) * 60, y: H * 0.35,
+    vx: (Math.random() - 0.5) * 9, vy: -Math.random() * 9 - 3,
+    s: 4 + (Math.random() * 3 | 0) * 2, c: colors[Math.random() * colors.length | 0],
+  }));
+  const t0 = performance.now();
+  (function frame(t){
+    ctx.clearRect(0, 0, W, H);
+    ps.forEach(p => { p.vy += 0.35; p.x += p.vx; p.y += p.vy; ctx.fillStyle = p.c; ctx.fillRect(Math.round(p.x / 2) * 2, Math.round(p.y / 2) * 2, p.s, p.s); });
+    if (t - t0 < 1800) requestAnimationFrame(frame); else ctx.clearRect(0, 0, W, H);
+  })(t0);
+}
+function showLevelUp(lv){
+  $('#levelupLv').textContent = 'LV ' + lv + ' · ' + 'レベルアップ';
+  $('#levelup').classList.add('show'); Sound.levelUp(); confetti();
+  setTimeout(hideLevelUp, 2000);
+}
+function hideLevelUp(){ $('#levelup').classList.remove('show'); }
+
+/* ===================== FEATURES ===================== */
+function earn(id){
+  const s = allStamps().find(x => x.id === id);
+  if (!s || isEarned(s)) return false;
+  const before = levelOf(totalXP());
+  state.stamps[id] = Date.now(); save();
+  const after = levelOf(totalXP());
+  refresh('stamps', id);
+  setTimeout(() => toast(`STAMP GET! ${s.name} +${s.xp} XP`), 300);
+  Sound.coin();
+  if (after > before) setTimeout(() => showLevelUp(after), 700);
+  return true;
+}
+
+function bindWarranty(){
+  const f = $('#activateForm'); if (!f) return;
+  f.addEventListener('submit', e => {
+    e.preventDefault();
+    const email = f.email.value.trim();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)){
+      $('#emailErr').textContent = '✕ Please enter a valid email.'; Sound.error(); f.email.focus(); return;
+    }
+    activateWarranty(email, f.newsletter.checked);
+  });
+}
+function activateWarranty(email, newsletter){
+  // ------------------------------------------------------------------
+  // TODO(backend): POST to the real warranty service here, e.g.
+  //   await fetch('/api/warranty/activate', { method:'POST',
+  //     headers:{'Content-Type':'application/json'},
+  //     body: JSON.stringify({ serial: CONFIG.console.serial, email, newsletter }) });
+  // and send a confirmation email via your email provider.
+  // Prototype: front-end only, saved to localStorage on this device.
+  // ------------------------------------------------------------------
+  state.warrantyEmail = email; state.activatedAt = Date.now(); state.newsletter = newsletter; save();
+  refresh('warranty');
+  Sound.ding(); confetti();
+  toast('✓ Warranty activated! 保証が有効になりました');
+  setTimeout(() => earn('warranty'), 900);
+}
+
+async function copyReferral(){
+  const code = CONFIG.referral.code;
+  let ok = false;
+  try { await navigator.clipboard.writeText(code); ok = true; }
+  catch(e){
+    const ta = document.createElement('textarea'); ta.value = code; ta.setAttribute('readonly', '');
+    ta.style.cssText = 'position:fixed;opacity:0;top:0'; document.body.appendChild(ta); ta.select();
+    try { ok = document.execCommand('copy'); } catch(_){} ta.remove();
+  }
+  toast(ok ? `Copied ${code} — share it with a friend!` : `Your code: ${code}`);
+  Sound.coin(); earn('referral');
+}
+
+function unlockSecret(){
+  const first = !state.secret;
+  state.secret = true; state.secretOn = true; save();
+  go(0, { force: true, dir: 'prev' }); refresh('info');
+  Sound.unlock(); Sound.tune(); confetti();
+  toast(first ? '★ SECRET! Golden 秋葉原 shell unlocked' : '★ Secret shell equipped');
+  if (first) setTimeout(() => earn('secret'), 1200);
+}
+
+function toggleSound(){
+  Sound.unlock();
+  state.sound = !state.sound; save(); updateSoundBtn();
+  if (state.sound) Sound.blip();
+}
+function updateSoundBtn(){
+  const b = $('#soundBtn'); b.setAttribute('aria-pressed', state.sound); b.textContent = state.sound ? '♪ ON' : '♪ OFF';
+}
+
+/* ===================== BOOT SEQUENCE ===================== */
+let bootDone = false, bootReady = false, dinged = false;
+function startBoot(){
+  const boot = $('#boot');
+  $('#led').classList.add('on');
+  const dropMs = reduceMotion() ? 0 : 1900;
+  requestAnimationFrame(() => boot.classList.add('on'));
+  setTimeout(() => {
+    bootReady = true; boot.classList.add('ready');
+    if (Sound.ctx && Sound.ctx.state === 'running'){ Sound.ding(); dinged = true; }
+  }, dropMs);
+  setTimeout(() => { if (!bootDone) finishBoot(); }, dropMs + 5000); // auto-continue (silent)
+  boot.addEventListener('click', () => { Sound.unlock(); finishBoot(); });
+}
+function finishBoot(){
+  if (bootDone) return;
+  bootDone = true;
+  if (!dinged){ Sound.ding(); dinged = true; }
+  const boot = $('#boot'); boot.classList.add('ready', 'done');
+  setTimeout(() => boot.remove(), 400);
+}
+
+/* ===================== DESK SCENE (desktop >= 1024px only) =====================
+   Builds the 90s desk props, the paper passport (left) and the spec card (right).
+   Nothing is created on mobile. Desk.update() is called from refresh() so both
+   side objects stay in sync with stamps / warranty / shell state. */
+const DESK_ART = {
+  cart: ['GGGGGGGGGG..','GGGGGGGGGGG.','GLLLLLLLLLGG','GLWWWWWWWLGG','GLWPPPPPWLGG','GLWPQQPPWLGG','GLWPPPPPWLGG',
+         'GLWWWWWWWLGG','GLLLLLLLLLGG','GGGGGGGGGGGG','GGddddddddGG','GGGGGGGGGGGG','GGddddddddGG','GyyyyyyyyyyG'],
+  driver: ['.HHHHHH.............','HHhHhHHHmmmmmmmmmmT.','HHhHhHHHmmmmmmmmmmTT','HHhHhHHHmmmmmmmmmmT.','.HHHHHH.............'],
+  screw: ['.sss.','ssKss','sKKKs','ssKss','.sss.'],
+  button: ['.ppp.','pwppp','ppppp','ppppd','.pdd.'],
+  dpad: ['..KK..','..KK..','KKKKKK','KKKKKK','..KK..','..KK..'],
+  ribbon: ['oooooooooooo','oyoyoyoyoyoo','oooooooooooo'],
+};
+const CART_LABELS = [['#C8346E', '#ffffff'], ['#1f6f78', '#9bbc0f'], ['#d4a72c', '#211F20'], ['#306230', '#9bbc0f']];
+const Desk = {
+  mq: window.matchMedia('(min-width: 1024px)'),
+  built: false, lastEarned: null,
+  init(){
+    const apply = () => {
+      document.body.classList.toggle('desk-on', this.mq.matches);
+      if (this.mq.matches){ this.build(); this.fit(); }
+    };
+    if (this.mq.addEventListener) this.mq.addEventListener('change', apply); else this.mq.addListener(apply);
+    apply();
+  },
+  build(){
+    if (this.built) return; this.built = true;
+    const art = (name, pal, w, x, y, r, d, cls = '') =>
+      `<div class="prop ${cls}" style="--x:${x};--y:${y};--r:${r}deg;--d:${d};width:${w}px">${pixelSVG(DESK_ART[name], pal)}</div>`;
+    const carts = [['4%','7%',-14,16],['17%','79%',9,10],['87%','6%',18,14],['77%','80%',-8,12]].map(([x,y,r,d], i) => {
+      const [P, Q] = CART_LABELS[i];
+      return art('cart', { G:'#9a979f', d:'#7c7981', L:'#4a4955', W:'#f1ebdd', P, Q, y:'#d4a72c' }, 84, x, y, r, d);
+    }).join('');
+    const parts = [
+      art('driver', { H:'#C8346E', h:'#9e2453', m:'#c9cbd1', T:'#8a8d94' }, 170, '23%', '9%', -18, 22),
+      art('screw', { s:'#c9cbd1', K:'#5f626a' }, 20, '31%', '23%', 0, 26),
+      art('screw', { s:'#c9cbd1', K:'#5f626a' }, 20, '34%', '20%', 40, 28),
+      art('screw', { s:'#c9cbd1', K:'#5f626a' }, 20, '67%', '90%', 15, 24),
+      art('screw', { s:'#c9cbd1', K:'#5f626a' }, 20, '95%', '58%', 0, 20),
+      art('button', { p:'#C8346E', w:'#f2a3c1', d:'#9e2453' }, 30, '7%', '89%', 0, 18),
+      art('button', { p:'#C8346E', w:'#f2a3c1', d:'#9e2453' }, 30, '10.5%', '93%', 0, 19),
+      art('dpad', { K:'#211F20' }, 38, '92%', '88%', 12, 16),
+      art('ribbon', { o:'#d98b2b', y:'#f3c46b' }, 120, '62%', '3%', 6, 12),
+    ].join('');
+    let seed = 7; const rnd = () => (seed = (seed * 9301 + 49297) % 233280) / 233280;
+    const stars = Array.from({ length: 16 }, () =>
+      `<i class="star" style="--x:${(rnd() * 96 + 2).toFixed(1)}%;--y:${(rnd() * 94 + 3).toFixed(1)}%;--t:${(4 + rnd() * 5).toFixed(1)}s;--dl:${(rnd() * 6).toFixed(1)}s"></i>`).join('');
+    const desk = document.createElement('div');
+    desk.className = 'desk desk-only'; desk.id = 'desk'; desk.setAttribute('aria-hidden', 'true');
+    desk.innerHTML = `<div class="mat"></div>${carts}${parts}${stars}
+      <div class="lamp"></div>`;
+    const crt = document.createElement('div'); crt.className = 'crt desk-only'; crt.setAttribute('aria-hidden', 'true');
+    const book = document.createElement('aside'); book.className = 'book desk-only'; book.id = 'deskBook';
+    book.setAttribute('aria-label', 'Paper passport booklet (mirrors your stamps)');
+    const spec = document.createElement('aside'); spec.className = 'spec desk-only'; spec.id = 'deskSpec';
+    spec.setAttribute('aria-label', 'Console spec card');
+    document.body.prepend(desk); document.body.append(book, spec, crt);
+    window.addEventListener('resize', () => this.fit());
+    this.bindParallax(desk);
+    this.update();
+  },
+  fit(){ // scale side objects into the space left beside the 460px device
+    const side = (window.innerWidth - 460) / 2 - 60;
+    const sc = (w) => Math.max(0.55, Math.min(1, side / w)).toFixed(3);
+    const b = $('#deskBook'), s = $('#deskSpec');
+    if (b) b.style.setProperty('--s', sc(430));
+    if (s) s.style.setProperty('--s', sc(300));
+  },
+  bindParallax(desk){
+    if (reduceMotion()) return;
+    let tx = 0, ty = 0, x = 0, y = 0, raf = 0;
+    const loop = () => {
+      x += (tx - x) * 0.12; y += (ty - y) * 0.12;
+      desk.style.setProperty('--mx', x.toFixed(3)); desk.style.setProperty('--my', y.toFixed(3));
+      raf = (Math.abs(tx - x) + Math.abs(ty - y) > 0.002) ? requestAnimationFrame(loop) : 0;
+    };
+    window.addEventListener('mousemove', e => {
+      if (reduceMotion()) return;
+      tx = (e.clientX / window.innerWidth - 0.5) * 2; ty = (e.clientY / window.innerHeight - 0.5) * 2;
+      if (!raf) raf = requestAnimationFrame(loop);
+    }, { passive: true });
+  },
+  update(newId){
+    if (!this.built) return;
+    const c = CONFIG.console, sh = currentShell(), w = warrantyInfo();
+    const xp = totalXP(), lv = levelOf(xp), into = xp % CONFIG.xpPerLevel, list = allStamps();
+    const got = list.filter(isEarned);
+    const mrz = ('P<PLUSY<' + c.builder.replace(/\W+/g, '<').toUpperCase() + '<<' + c.serial.replace(/-/g, '') + '<<<<<<<<<<<<').slice(0, 44);
+    $('#deskBook').innerHTML = `
+      <div class="pg l">
+        <div class="bk-photo">${consoleArt()}</div>
+        <p class="bk-title">+Y CONSOLE<br>PASSPORT</p>
+        <p class="bk-sub">旅券 · ${esc(CONFIG.shop.city)}</p>
+        <div class="bk-row"><span>Holder</span><span>${esc(c.builder)}</span></div>
+        <div class="bk-row"><span>No.</span><span>${esc(c.serial)}</span></div>
+        <div class="bk-row"><span>Issued</span><span>${esc(c.buildDate)}</span></div>
+        <div class="bk-lv"><span>LV ${lv}</span><span>${into}/${CONFIG.xpPerLevel} XP</span></div>
+        <div class="bk-xp"><i style="width:${(into / CONFIG.xpPerLevel) * 100}%"></i></div>
+        <div class="bk-mrz">${esc(mrz)}</div>
+      </div>
+      <div class="pg r">
+        <p class="bk-title">STAMPS ${got.length}/${list.length}</p>
+        <p class="bk-sub">スタンプ · total ${xp} XP</p>
+        <div class="bk-stamps">${list.map((s, i) => {
+          const on = isEarned(s), r = ((i * 37) % 24) - 12;
+          return on
+            ? `<div class="ink on ${s.id === newId ? 'thump' : ''}" style="--r:${r}deg" title="${esc(s.name)}">${icon(s.icon)}${esc(s.name)}</div>`
+            : `<div class="ink off" style="--r:0deg" title="${esc(s.name)} (locked)">?</div>`;
+        }).join('')}</div>
+      </div>`;
+    const segs = 20, filled = Math.ceil(w.pct * segs);
+    $('#deskSpec').innerHTML = `
+      <div class="spec-card">
+        <div class="spec-hd"><span><b>+</b>Y SPEC CARD</span><span>仕様</span></div>
+        <div class="spec-bd">
+          <div class="small" style="color:#7b7680">SERIAL ${CONFIG.isDemo ? '· DEMO' : ''}</div>
+          <div class="spec-serial">${esc(c.serial)}</div>
+          <div class="spec-shell"><i style="background:${sh.hex}"></i>${esc(sh.name)}</div>
+          <ul>${c.parts.map(p => `<li><span>${esc(p.k)}</span>${esc(p.v)}</li>`).join('')}</ul>
+          <div class="spec-hp"><span>HP</span><div class="bar ${w.pct < 0.2 ? 'low' : ''}">${Array.from({ length: segs }, (_, i) => `<i class="${i < filled ? 'on' : ''}"></i>`).join('')}</div></div>
+          <div class="spec-st"><span>${w.left}/${w.total} days</span><b class="${state.warrantyEmail ? 'ok' : ''}">${state.warrantyEmail ? 'ACTIVE' : 'INACTIVE'}</b></div>
+        </div>
+      </div>
+      <div class="spec-stand"></div>`;
+  },
+};
+
+/* ===================== INIT ===================== */
+function init(){
+  // TODO(data): in production, read ?serial= from the QR URL and fetch the
+  // console record instead of using the demo CONFIG above.
+  SECTIONS.forEach(s => refresh(s.id));
+  const fromHash = SECTIONS.findIndex(s => '#' + s.id === location.hash);
+  renderTabs();
+  if (fromHash > 0) go(fromHash, { instant: true });
+  updateSoundBtn();
+  bindControls();
+  Desk.init();
+  startBoot();
+}
+init();
+</script>
+</body>
+</html>
